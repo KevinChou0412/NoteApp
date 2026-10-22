@@ -1,0 +1,17 @@
+# Instructor-only: maps every planted flaw to its location and exploit.
+# MUST never reach the student-facing repo.
+INSTRUCTOR_NOTES.md
+.instructor/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Local env overrides
+.env
+.env.local
+
+# Nginx certificates and private keys
+nginx/certs/
