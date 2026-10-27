@@ -12,6 +12,7 @@ venv/
 # Local env overrides
 .env
 .env.local
+!.env.example
 
 # Nginx certificates and private keys
 nginx/certs/

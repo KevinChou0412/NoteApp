@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS notes, enrollments, classes, users CASCADE;
 CREATE TABLE users (
     id         SERIAL PRIMARY KEY,
     username   TEXT UNIQUE NOT NULL,
-    password   TEXT NOT NULL,          -- stored in clear text (planted flaw #1)
+    password   TEXT NOT NULL,          -- legacy seed values upgrade to Argon2id after login
     role       TEXT NOT NULL,          -- 'student' | 'teacher' | 'admin'
     teacher_id INTEGER REFERENCES users(id)
 );
@@ -28,7 +28,7 @@ CREATE TABLE notes (
     student_id INTEGER REFERENCES users(id),
     class_id   INTEGER REFERENCES classes(id),
     grade      NUMERIC(4,1),
-    comment    TEXT                    -- rendered as rich text / unescaped (planted flaw #10)
+    comment    TEXT                    -- legacy seed comments are encrypted by app startup
 );
 
 -- admin (id 1)

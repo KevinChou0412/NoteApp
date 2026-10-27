@@ -15,6 +15,10 @@ import subprocess
 
 import psycopg2
 import psycopg2.extras
+from security_utils import (
+    decode_key, decrypt_comment, encrypt_comment, export_hmac,
+    hash_password, verify_password,
+)
 from flask import (
     Flask, request, session, redirect, url_for,
     render_template, Response, jsonify, abort,
@@ -28,12 +32,55 @@ DB_USER = os.environ.get("DB_USER", "notesapp")
 DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "notesapp_pg_pw_2024")
 JWT_SECRET = os.environ.get("JWT_SECRET", "s3cr3t")
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-session-key")
-EXPORT_SECRET = os.environ.get("EXPORT_SECRET", "default-export-secret") #new
+COMMENT_ENCRYPTION_KEY_B64 = os.environ.get("COMMENT_ENCRYPTION_KEY_B64")
+EXPORT_HMAC_KEY_B64 = os.environ.get("EXPORT_HMAC_KEY_B64")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE") == "1"
 
 LOG_FILE = os.environ.get("NOTESAPP_LOG", "/var/log/notesapp/app.log")
+
+
+def comment_key():
+    return decode_key(COMMENT_ENCRYPTION_KEY_B64, "COMMENT_ENCRYPTION_KEY_B64")
+
+
+def export_key():
+    return decode_key(EXPORT_HMAC_KEY_B64, "EXPORT_HMAC_KEY_B64")
+
+
+def migrate_comments():
+    key = comment_key()
+    conn = get_db()
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, comment FROM notes ORDER BY id FOR UPDATE")
+            for row in cur.fetchall():
+                note_id, comment = row["id"], row["comment"]
+                if comment is None:
+                    continue
+                if comment.startswith("aesgcm:v1:"):
+                    decrypt_comment(note_id, comment, key)
+                    continue
+                cur.execute(
+                    "UPDATE notes SET comment = %s WHERE id = %s",
+                    (encrypt_comment(note_id, comment, key), note_id),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def decrypt_notes(notes):
+    key = comment_key()
+    for note in notes:
+        note["comment"] = decrypt_comment(note["id"], note["comment"], key)
+    return notes
 
 
 def log(msg):
@@ -147,8 +194,8 @@ def login():
         password = request.form.get("password", "")
         # Flaw #8: SQL injection. Query built by string concatenation, no params.
         query = (
-            "SELECT id, username, role FROM users "
-            "WHERE username = '" + username + "' AND password = '" + password + "'"
+            "SELECT id, username, role, password FROM users "
+            "WHERE username = '" + username + "'"
         )
         conn = get_db()
         cur = conn.cursor()
@@ -160,7 +207,17 @@ def login():
             error = f"Query error: {e}"
             row = None
         conn.close()
-        if row:
+        matched, upgraded_password = verify_password(password, row["password"]) if row else (False, None)
+        if matched and upgraded_password:
+            conn = get_db()
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE users SET password = %s WHERE id = %s AND password = %s",
+                (upgraded_password, row["id"], row["password"]),
+            )
+            matched = cur.rowcount == 1
+            conn.close()
+        if matched:
             session["user_id"] = row["id"]
             session["username"] = row["username"]
             session["role"] = row["role"]
@@ -196,6 +253,7 @@ def dashboard():
     )
     notes = cur.fetchall()
     conn.close()
+    decrypt_notes(notes)
     return render_template("dashboard.html", notes=notes, token=session.get("token"))
 
 
@@ -219,6 +277,7 @@ def api_notes(note_id):
     conn.close()
     if not note:
         return jsonify({"error": "not found"}), 404
+    note["comment"] = decrypt_comment(note["id"], note["comment"], comment_key())
     note["grade"] = float(note["grade"]) if note["grade"] is not None else None
     return jsonify(note)
 
@@ -242,6 +301,7 @@ def teacher():
     cur.execute("SELECT id, username FROM users WHERE role = 'student' ORDER BY username")
     students = cur.fetchall()
     conn.close()
+    decrypt_notes(notes)
     return render_template("teacher.html", classes=classes, notes=notes, students=students)
 
 
@@ -255,20 +315,34 @@ def grades():
     class_id = request.form.get("class_id")
     grade = request.form.get("grade")
     comment = request.form.get("comment", "")
+    key = comment_key()
     conn = get_db()
-    cur = conn.cursor()
-    if note_id:
-        cur.execute(
-            "UPDATE notes SET grade = %s, comment = %s WHERE id = %s",
-            (grade, comment, note_id),
-        )
-    else:
-        cur.execute(
-            "INSERT INTO notes (student_id, class_id, grade, comment) "
-            "VALUES (%s, %s, %s, %s)",
-            (student_id, class_id, grade, comment),
-        )
-    conn.close()
+    conn.autocommit = False
+    try:
+        with conn.cursor() as cur:
+            if note_id:
+                encrypted = encrypt_comment(int(note_id), comment, key)
+                cur.execute(
+                    "UPDATE notes SET grade = %s, comment = %s WHERE id = %s",
+                    (grade, encrypted, note_id),
+                )
+            else:
+                cur.execute(
+                    "INSERT INTO notes (student_id, class_id, grade, comment) "
+                    "VALUES (%s, %s, %s, NULL) RETURNING id",
+                    (student_id, class_id, grade),
+                )
+                new_note_id = cur.fetchone()[0]
+                cur.execute(
+                    "UPDATE notes SET comment = %s WHERE id = %s",
+                    (encrypt_comment(new_note_id, comment, key), new_note_id),
+                )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
     log(f"grade write by {session.get('username')} note_id={note_id or 'new'}")
     return redirect(url_for("teacher"))
 
@@ -286,7 +360,7 @@ def export_csv():
     cur = conn.cursor()
     if class_id:
         cur.execute(
-            "SELECT u.username AS student, c.name AS class, n.grade, n.comment "
+            "SELECT n.id AS note_id, u.username AS student, c.name AS class, n.grade, n.comment "
             "FROM notes n JOIN users u ON u.id = n.student_id "
             "JOIN classes c ON c.id = n.class_id WHERE n.class_id = %s "
             "ORDER BY u.username",
@@ -294,62 +368,30 @@ def export_csv():
         )
     else:
         cur.execute(
-            "SELECT u.username AS student, c.name AS class, n.grade, n.comment "
+            "SELECT n.id AS note_id, u.username AS student, c.name AS class, n.grade, n.comment "
             "FROM notes n JOIN users u ON u.id = n.student_id "
             "JOIN classes c ON c.id = n.class_id ORDER BY c.name, u.username"
         )
     rows = cur.fetchall()
     conn.close()
+    key = comment_key()
+    for row in rows:
+        row["comment"] = decrypt_comment(row["note_id"], row["comment"], key)
     # --- 原本的数据库查询代码结束 ---
 
-    # 生成 CSV 内容
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["student", "class", "grade", "comment"])
     for r in rows:
         writer.writerow([r["student"], r["class"], r["grade"], r["comment"]])
 
-    # === 新增的 HMAC 逻辑 ===
-    csv_content = buf.getvalue()
-    
-    # 使用 SHA-256 和刚才配置的 EXPORT_SECRET 计算 HMAC
-    mac = hmac.new(
-        EXPORT_SECRET.encode('utf-8'), 
-        csv_content.encode('utf-8'), 
-        hashlib.sha256
-    ).hexdigest()
-    
-    # 将 HMAC 签名作为注释追加到文件最后一行
-    final_csv_content = f"{csv_content}# HMAC: {mac}\n"
+    csv_content = buf.getvalue().encode("utf-8")
+    mac = export_hmac(csv_content, export_key())
+    final_csv_content = csv_content + f"# HMAC-SHA256: {mac}\r\n".encode("ascii")
 
     return Response(
-        final_csv_content, 
+        final_csv_content,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=grades.csv"},
-    ) 
-    if class_id:
-        cur.execute(
-            "SELECT u.username AS student, c.name AS class, n.grade, n.comment "
-            "FROM notes n JOIN users u ON u.id = n.student_id "
-            "JOIN classes c ON c.id = n.class_id WHERE n.class_id = %s "
-            "ORDER BY u.username",
-            (class_id,),
-        )
-    else:
-        cur.execute(
-            "SELECT u.username AS student, c.name AS class, n.grade, n.comment "
-            "FROM notes n JOIN users u ON u.id = n.student_id "
-            "JOIN classes c ON c.id = n.class_id ORDER BY c.name, u.username"
-        )
-    rows = cur.fetchall()
-    conn.close()
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["student", "class", "grade", "comment"])
-    for r in rows:
-        writer.writerow([r["student"], r["class"], r["grade"], r["comment"]])
-    return Response(
-        buf.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=grades.csv"},
     )
 
@@ -418,7 +460,7 @@ def admin_users():
         cur.execute(
             "INSERT INTO users (username, password, role, teacher_id) "
             "VALUES (%s, %s, %s, %s)",
-            (request.form.get("username"), request.form.get("password"),
+            (request.form.get("username"), hash_password(request.form.get("password", "")),
              request.form.get("role", "student"), None),
         )
     elif action == "delete":
@@ -439,4 +481,6 @@ def healthz():
 
 if __name__ == "__main__":
     # Plain HTTP on purpose (flaw #3). Nginx + TLS is added in a later lab.
+    export_key()
+    migrate_comments()
     app.run(host="0.0.0.0", port=5000, debug=True)
