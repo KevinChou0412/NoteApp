@@ -1,0 +1,7 @@
+synthetic pixels: 49152 bytes
+ECB padded input: 49168 bytes
+round-trip: ECB and GCM verified
+ECB repeated 16-byte blocks: 3059
+plaintext SHA-256: 9cba8b82b1579ef3655f45744ce58788de5646ddf36678f9ba161f0285ae3d6c
+Key and nonce are randomly generated and not saved.
+Ciphertext preview PNGs are lossy visualizations, not decryptable backups.
