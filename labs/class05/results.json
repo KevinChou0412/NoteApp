@@ -1,0 +1,19 @@
+{
+  "recorded_on": "2026-10-27",
+  "runtime": "3.15.1",
+  "platform": "macOS-26.6-arm64-arm-64bit-Mach-O",
+  "synthetic_account_count": 3,
+  "wordlist_candidate_count": 5,
+  "wordlist_matches": 1,
+  "md5_checks": 100000,
+  "md5_checks_per_second": 3066720.33,
+  "benchmark_matches": 20000,
+  "argon2id": {
+    "memory_kib": 32768,
+    "time_cost": 2,
+    "parallelism": 1,
+    "failed_verification_samples": 5,
+    "median_ms": 24.596
+  },
+  "scope": "synthetic in-memory accounts only"
+}
