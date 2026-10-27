@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#174a6e"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#b13d35"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #17364b; }
+      .title { font-size: 30px; font-weight: 700; }
+      .subtitle { font-size: 16px; fill: #456477; }
+      .zone { fill: #f5f9fc; stroke: #8caabd; stroke-width: 2; stroke-dasharray: 10 8; }
+      .node { fill: #ffffff; stroke: #315d78; stroke-width: 2.5; rx: 14; }
+      .actor { fill: #eef7ff; }
+      .sensitive { fill: #fff8e9; stroke: #a97924; }
+      .nodeTitle { font-size: 20px; font-weight: 700; }
+      .nodeText { font-size: 15px; fill: #405c6e; }
+      .boundary { font-size: 15px; font-weight: 700; fill: #476b81; }
+      .flow { fill: none; stroke: #174a6e; stroke-width: 3; marker-end: url(#arrow); }
+      .flowDash { fill: none; stroke: #174a6e; stroke-width: 3; stroke-dasharray: 9 7; marker-end: url(#arrow); }
+      .riskFlow { fill: none; stroke: #b13d35; stroke-width: 3; marker-end: url(#arrowRed); }
+      .n { fill: #174a6e; stroke: #ffffff; stroke-width: 2; }
+      .nr { fill: #b13d35; stroke: #ffffff; stroke-width: 2; }
+      .num { font-size: 14px; fill: #ffffff; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+      .legend { font-size: 15px; fill: #405c6e; }
+      .small { font-size: 14px; fill: #405c6e; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1050" fill="#ffffff"/>
+  <text x="60" y="58" class="title">NotesApp — Numbered Data-Flow Diagram</text>
+  <text x="60" y="88" class="subtitle">Base Compose configuration and optional localhost HTTPS overlay · numbered arrows map to F01–F13 in the flow inventory</text>
+
+  <rect x="340" y="120" width="1210" height="595" rx="20" class="zone"/>
+  <text x="365" y="150" class="boundary">COMPOSE APPLICATION NETWORK</text>
+
+  <rect x="330" y="175" width="8" height="475" fill="#b13d35" opacity="0.85"/>
+  <text x="285" y="675" class="boundary" transform="rotate(-90 285 675)">TB1 · browser / service boundary</text>
+
+  <line x1="1175" y1="170" x2="1175" y2="500" stroke="#b13d35" stroke-width="4" stroke-dasharray="10 8"/>
+  <text x="1200" y="440" class="boundary" transform="rotate(-90 1200 440)">TB2 · app / database boundary</text>
+
+  <line x1="1040" y1="405" x2="1040" y2="620" stroke="#b13d35" stroke-width="4" stroke-dasharray="10 8"/>
+  <text x="1060" y="615" class="boundary" transform="rotate(-90 1060 615)">TB4 · app / OS process</text>
+
+  <rect x="55" y="185" width="230" height="150" class="node actor"/>
+  <text x="80" y="225" class="nodeTitle">Browsers</text>
+  <text x="80" y="255" class="nodeText">Student · Teacher · Admin</text>
+  <text x="80" y="282" class="nodeText">Credentials, cookies, JWT</text>
+  <text x="80" y="309" class="nodeText">Grades, edits, admin forms</text>
+
+  <rect x="385" y="185" width="220" height="125" class="node actor"/>
+  <text x="410" y="225" class="nodeTitle">nginx TLS proxy</text>
+  <text x="410" y="255" class="nodeText">Optional HTTPS overlay</text>
+  <text x="410" y="282" class="nodeText">80 → 443 redirect</text>
+
+  <rect x="700" y="185" width="330" height="195" class="node"/>
+  <text x="730" y="225" class="nodeTitle">Flask application</text>
+  <text x="730" y="256" class="nodeText">Login · sessions · JWT</text>
+  <text x="730" y="284" class="nodeText">Grades · API · CSV export</text>
+  <text x="730" y="312" class="nodeText">AES-GCM comments · Argon2id</text>
+  <text x="730" y="340" class="nodeText">Admin diagnostic · runs as root</text>
+
+  <rect x="1240" y="205" width="260" height="145" class="node sensitive"/>
+  <text x="1270" y="250" class="nodeTitle">PostgreSQL</text>
+  <text x="1270" y="281" class="nodeText">Users · grades · comments</text>
+  <text x="1270" y="309" class="nodeText">Base publishes host port 5432</text>
+
+  <rect x="1050" y="485" width="220" height="110" class="node sensitive"/>
+  <text x="1080" y="527" class="nodeTitle">Shell / ping</text>
+  <text x="1080" y="557" class="nodeText">Admin-supplied host input</text>
+
+  <rect x="700" y="485" width="250" height="100" class="node"/>
+  <text x="730" y="528" class="nodeTitle">Application log</text>
+  <text x="730" y="558" class="nodeText">Local file · no rotation</text>
+
+  <rect x="55" y="465" width="230" height="110" class="node actor"/>
+  <text x="80" y="507" class="nodeTitle">External client</text>
+  <text x="80" y="537" class="nodeText">Direct DB access in base</text>
+
+  <rect x="380" y="805" width="430" height="135" class="node sensitive"/>
+  <text x="410" y="850" class="nodeTitle">Docker host / project files</text>
+  <text x="410" y="880" class="nodeText">Docker socket + whole-project mount</text>
+  <text x="410" y="908" class="nodeText">Present in base and HTTPS overlay</text>
+
+  <rect x="1000" y="805" width="500" height="135" class="node sensitive"/>
+  <text x="1030" y="850" class="nodeTitle">Host-held secrets and certificates</text>
+  <text x="1030" y="880" class="nodeText">.env AES/HMAC keys → Flask</text>
+  <text x="1030" y="908" class="nodeText">TLS private key → nginx (HTTPS overlay)</text>
+
+  <rect x="55" y="760" width="1495" height="220" rx="18" fill="none" stroke="#a97924" stroke-width="3" stroke-dasharray="11 8"/>
+  <text x="80" y="790" class="boundary">HOST / SECRET TRUST ZONE</text>
+  <text x="775" y="753" class="boundary">TB3 · container / host boundary</text>
+  <text x="1320" y="760" class="boundary">TB5 · secret access</text>
+
+  <path d="M285 210 C320 185 345 185 385 210" class="flow"/>
+  <circle cx="335" cy="183" r="16" class="n"/><text x="335" y="183" class="num">1</text>
+
+  <path d="M605 240 L700 240" class="flow"/>
+  <circle cx="652" cy="218" r="16" class="n"/><text x="652" y="218" class="num">2</text>
+
+  <path d="M700 185 C660 135 360 135 285 185" class="flow"/>
+  <circle cx="505" cy="137" r="16" class="n"/><text x="505" y="137" class="num">3</text>
+
+  <path d="M1030 230 C1100 205 1160 205 1240 230" class="flow"/>
+  <circle cx="1135" cy="207" r="16" class="n"/><text x="1135" y="207" class="num">4</text>
+
+  <path d="M1240 320 C1165 350 1100 350 1030 320" class="flow"/>
+  <circle cx="1135" cy="345" r="16" class="n"/><text x="1135" y="345" class="num">5</text>
+
+  <path d="M285 300 C390 410 540 410 700 355" class="riskFlow"/>
+  <circle cx="505" cy="394" r="16" class="nr"/><text x="505" y="394" class="num">6</text>
+
+  <path d="M700 365 C580 455 420 450 285 325" class="flow"/>
+  <circle cx="490" cy="444" r="16" class="n"/><text x="490" y="444" class="num">7</text>
+
+  <path d="M980 380 C1000 425 1050 455 1090 485" class="riskFlow"/>
+  <circle cx="1020" cy="425" r="16" class="nr"/><text x="1020" y="425" class="num">8</text>
+
+  <path d="M1050 520 C1015 480 1005 430 990 380" class="flow"/>
+  <circle cx="1020" cy="490" r="16" class="n"/><text x="1020" y="490" class="num">9</text>
+
+  <path d="M780 380 L805 485" class="flow"/>
+  <circle cx="770" cy="430" r="16" class="n"/><text x="770" y="430" class="num">10</text>
+
+  <path d="M285 520 C600 650 1060 650 1240 345" class="riskFlow"/>
+  <circle cx="480" cy="607" r="16" class="nr"/><text x="480" y="607" class="num">11</text>
+
+  <path d="M800 380 C755 520 655 680 600 805" class="riskFlow"/>
+  <circle cx="700" cy="665" r="16" class="nr"/><text x="700" y="665" class="num">12</text>
+
+  <path d="M1200 805 C1160 700 1020 610 950 380" class="flowDash"/>
+  <circle cx="1080" cy="680" r="16" class="n"/><text x="1080" y="680" class="num">13</text>
+  <path d="M1040 840 C850 730 690 520 580 310" class="flowDash"/>
+  <circle cx="805" cy="620" r="16" class="n"/><text x="805" y="620" class="num">13</text>
+
+  <text x="60" y="1015" class="legend">Solid arrows: request/data flows · Red arrows: intentionally risky flows · Dashed arrows: optional overlay or secret injection</text>
+  <text x="60" y="1038" class="legend">Base Compose publishes Flask :8080 and PostgreSQL :5432. HTTPS overlay binds nginx :80/:443 to localhost and removes those published ports.</text>
+</svg>
