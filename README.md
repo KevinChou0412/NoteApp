@@ -25,6 +25,28 @@ docker compose up --build
 The first run migrates the seed comments to AES-GCM ciphertext. Keep the ignored
 `.env` file and a secure backup of its keys; do not generate replacement keys for an
 existing database. The default teaching stack is available at http://localhost:8080.
+The setup script also creates a strong JWT signing key in `.env`, preserving
+existing keys when it adds a missing one. In real deployments, provide secrets
+through a secrets manager; never commit their values.
+
+## Class 07: Fix the login
+
+The JWT verifier rejects `alg:none`, accepts only server-pinned `HS256`, and
+requires a random `JWT_SECRET` supplied through `.env`.
+
+```text
+LOGIN FIX — NotesApp flaw #4 (auth) closed
+  provided alg:none attacker token    -> 401 unauthorized
+  provided s3cr3t-signed HS256 token   -> 401 unauthorized
+  valid HS256 token                    -> accepted
+  real alice login and dashboard      -> works (HTTP 200)
+```
+
+Both original forged tokens provided for this lab were tested against the local
+`/api/notes/3` endpoint and returned `401 {"error":"unauthorized"}`. The HS256
+token's payload names Alice but claims the teacher role; its signature was made
+with the old weak secret and is rejected. Regression tests also cover both attack
+patterns. The earlier screenshot shows a separate Alice student token.
 
 For local HTTPS, run `sh scripts/generate_cert.sh` and start both Compose files:
 
