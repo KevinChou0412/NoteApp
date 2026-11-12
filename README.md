@@ -48,6 +48,22 @@ token's payload names Alice but claims the teacher role; its signature was made
 with the old weak secret and is rejected. Regression tests also cover both attack
 patterns. The earlier screenshot shows a separate Alice student token.
 
+## Class 08: Read anyone's grade
+
+The `/api/notes/<id>` handler now checks note ownership after fetching the note.
+Students can read their own notes; teachers and admins can read any note. A
+student requesting another student's note receives `404 {"error":"not found"}`.
+
+The local lab confirmed the original IDOR before the fix: as Alice, requesting
+`/api/notes/3` returned Bob's grade (12.6) and comment ("Solid work, keep it up.").
+After the fix, local checks returned:
+
+| Request | Result |
+|---------|--------|
+| Alice reads Bob's note 3 | 404 not found |
+| Alice reads her own note 1 | 200 OK |
+| `prof.turing` reads Bob's note 3 | 200 OK |
+
 For local HTTPS, run `sh scripts/generate_cert.sh` and start both Compose files:
 
 ```sh
