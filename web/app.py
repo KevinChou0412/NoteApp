@@ -11,6 +11,7 @@ import hmac
 import time
 import base64
 import hashlib
+import re
 import subprocess
 
 import psycopg2
@@ -184,18 +185,16 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "")
         password = request.form.get("password", "")
-        # Flaw #8: SQL injection. Query built by string concatenation, no params.
         query = (
             "SELECT id, username, role, password FROM users "
-            "WHERE username = '" + username + "'"
+            "WHERE username = %s"
         )
         conn = get_db()
         cur = conn.cursor()
         try:
-            cur.execute(query)
+            cur.execute(query, (username,))
             row = cur.fetchone()
         except Exception as e:
-            # Keep the raw error visible - helps the SQLi session.
             error = f"Query error: {e}"
             row = None
         conn.close()
@@ -407,15 +406,17 @@ def admin():
 
 @app.route("/admin/ping", methods=["POST"])
 def admin_ping():
-    # Flaw #11: no CSRF token. Flaw #9: command injection via os/system shell.
+    # Flaw #11: no CSRF token.
     if not login_required("admin"):
         return redirect(url_for("login"))
     host = request.form.get("host", "")
-    # Host is concatenated straight into a shell command.
-    cmd = "ping -c 1 " + host
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*", host):
+        output = "Enter a valid hostname or IPv4 address."
+        return render_template("admin.html", users=_all_users(), classes=_all_classes(),
+                               ping_result=output)
     try:
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=10,
+            ["ping", "-c", "1", host], capture_output=True, text=True, timeout=10,
         )
         output = result.stdout + result.stderr
     except Exception as e:
