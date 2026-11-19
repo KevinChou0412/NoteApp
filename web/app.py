@@ -12,6 +12,7 @@ import time
 import base64
 import hashlib
 import re
+import secrets
 import subprocess
 
 import psycopg2
@@ -39,8 +40,27 @@ EXPORT_HMAC_KEY_B64 = os.environ.get("EXPORT_HMAC_KEY_B64")
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("COOKIE_SECURE") == "1"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 LOG_FILE = os.environ.get("NOTESAPP_LOG", "/var/log/notesapp/app.log")
+
+
+def csrf_token():
+    if "csrf" not in session:
+        session["csrf"] = secrets.token_urlsafe(32)
+    return session["csrf"]
+
+
+app.jinja_env.globals["csrf_token"] = csrf_token
+
+
+@app.before_request
+def check_csrf():
+    if request.method == "POST" and request.endpoint != "login":
+        expected = session.get("csrf")
+        sent = request.form.get("csrf_token", "")
+        if not expected or not hmac.compare_digest(sent, expected):
+            abort(400, "CSRF token missing or wrong")
 
 
 def comment_key():
@@ -300,7 +320,6 @@ def teacher():
 
 @app.route("/grades", methods=["POST"])
 def grades():
-    # Flaw #11: no CSRF token checked on this state-changing POST.
     if not login_required("teacher"):
         return redirect(url_for("login"))
     note_id = request.form.get("note_id", "").strip()
@@ -406,7 +425,6 @@ def admin():
 
 @app.route("/admin/ping", methods=["POST"])
 def admin_ping():
-    # Flaw #11: no CSRF token.
     if not login_required("admin"):
         return redirect(url_for("login"))
     host = request.form.get("host", "")
